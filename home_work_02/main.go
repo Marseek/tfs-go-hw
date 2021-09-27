@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Node - Структура для Анмаршаллинга
 type Node struct {
 	Company   string      `json:"company"`
 	Operation Operation   `json:"Operation"`
@@ -27,6 +28,7 @@ type Operation struct {
 	CreatedAt string      `json:"created_at"`
 }
 
+// CompAndIDIsValid - Проверка наличия полей Company и ID
 func CompAndIDIsValid(a Node) (interface{}, bool) {
 	if a.Company == "" {
 		return nil, false // company name is absent
@@ -48,6 +50,8 @@ func CompAndIDIsValid(a Node) (interface{}, bool) {
 	}
 	return nil, false // id is invalid
 }
+
+// IsConvertable - конвертируется ли строка без потерь в целочисленное значение
 func IsConvertable(a string) (int, bool) {
 	floatVal, err := strconv.ParseFloat(a, 64)
 	if err != nil {
@@ -55,11 +59,12 @@ func IsConvertable(a string) (int, bool) {
 	}
 	round := math.Ceil(floatVal)
 	if floatVal != round {
-		return 0, false // не конвертируется без потерь в целочисленное значение
+		return 0, false
 	}
 	return int(round), true
 }
 
+// ValueIsValid - Проверка валидности поля Value
 func ValueIsValid(a Node) (int, bool) {
 	var val interface{}
 	if a.Value == nil && a.Operation.Value == nil {
@@ -75,16 +80,23 @@ func ValueIsValid(a Node) (int, bool) {
 	if !ok1 && !ok2 {
 		return 0, false // не является ни числом ни строкой
 	}
-	if ok2 { // если строка, пытаемся конвертировать в число
+	// если строка, пытаемся конвертировать в число
+	if ok2 {
 		res, ok := IsConvertable(strVal)
 		if !ok {
 			return 0, false // не конвертируется без потерь в целочисленное значение или не является числом
 		}
 		return res, true
 	}
+	// если число, проверяем на наличие дробной части
+	round := math.Ceil(floatVal)
+	if floatVal != round {
+		return 0, false
+	}
 	return int(floatVal), true
 }
 
+// TimeIsValid - Проверка наличия и валидности поля CreatedAt
 func TimeIsValid(a Node) bool {
 	var createdAt string
 	retval := false
@@ -103,6 +115,7 @@ func TimeIsValid(a Node) bool {
 	return true
 }
 
+// TypeIsValid - Проверка валидности поля Value
 func TypeIsValid(a Node) (int, bool) {
 	var val string
 	if a.Type == "" && a.Operation.Type == "" {
@@ -122,6 +135,7 @@ func TypeIsValid(a Node) (int, bool) {
 	return 0, false
 }
 
+// OutNode - Структура для вывода результата в JSON
 type OutNode struct {
 	Company string        `json:"company"`
 	ValidOp int           `json:"valid_operations_count"`
@@ -131,6 +145,7 @@ type OutNode struct {
 
 var filePath string
 
+// Получение пути и названия файла
 func init() {
 	var filePath2 = flag.String("file", "", "path to file")
 	flag.Parse()
@@ -151,53 +166,60 @@ func init() {
 
 func main() {
 	var input []Node
+
+	// Словарь для хранения промежуточных результатов (для удобного поиска по полю Company)
 	nodeMap := map[string]OutNode{}
 
-	f2, err := os.Open(filePath)
+	f, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Can't open file")
+		panic(err)
 	}
-	data2, _ := ioutil.ReadAll(f2)
+	data2, _ := ioutil.ReadAll(f)
 	err = json.Unmarshal(data2, &input)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Произошла ошибка при Анмаршаллинге")
+		panic(err)
 	}
-	_ = f2.Close()
+	_ = f.Close()
 
+	// проход по считанным из файла данным
 	for _, val := range input {
 		id, ok := CompAndIDIsValid(val)
 		if !ok || !TimeIsValid(val) { //  Пропускаем элемент, если отсутствуют:
 			continue //  время, название компании или ID
 		}
-		value, okVal := ValueIsValid(val)
-
-		operationType, okType := TypeIsValid(val)
+		value, okVal := ValueIsValid(val)         // получение данных из поля Value
+		operationType, okType := TypeIsValid(val) // получение данных из поля Type
 
 		_, exists := nodeMap[val.Company]
 		if exists {
 			curr := nodeMap[val.Company]
-			if !okVal || !okType {
-				curr.ID = append(curr.ID, id)
+			if !okVal || !okType { // Если операция невалидна
+				curr.ID = append(curr.ID, id) // Добавление ID в поле невалидных операций
 				nodeMap[val.Company] = curr
-			} else {
+			} else { // Если валидна - изменение данных балланса и счетчика операций
 				curr.ValidOp++
 				curr.Balance += (operationType) * value
 				nodeMap[val.Company] = curr
 			}
-		} else {
-			nodeMap[val.Company] = OutNode{Company: val.Company, ValidOp: 1, Balance: (operationType) * value}
+		} else { // Если компании с таким названием не существовало
+			if !okVal || !okType {
+				nodeMap[val.Company] = OutNode{Company: val.Company, ID: []interface{}{id}}
+			} else {
+				nodeMap[val.Company] = OutNode{Company: val.Company, ValidOp: 1, Balance: (operationType) * value}
+			}
 		}
 	}
 
-	var nodeSlice []OutNode
+	var nodeSlice []OutNode // Копируем полученные данные в структуру для Анмаршаллинга
 	for _, v := range nodeMap {
 		nodeSlice = append(nodeSlice, v)
 	}
 
-	f, _ := os.Create("out.json") // create file
-	defer f.Close()
+	f2, _ := os.Create("out.json") // create file
+	defer f2.Close()
 
-	enc := json.NewEncoder(f)
+	enc := json.NewEncoder(f2)
 	enc.SetIndent("", "\t")
 	_ = enc.Encode(nodeSlice)
 }
