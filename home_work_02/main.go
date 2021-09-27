@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -210,10 +211,27 @@ func main() {
 			}
 		}
 	}
-
 	var nodeSlice []OutNode // Копируем полученные данные в структуру для Анмаршаллинга
 	for _, v := range nodeMap {
 		nodeSlice = append(nodeSlice, v)
+	}
+
+	sort.SliceStable(nodeSlice, func(i, j int) bool { // Сортировка слайса структур по полю Company
+		return nodeSlice[i].Company < nodeSlice[j].Company
+	})
+
+	for _, v := range nodeSlice {
+		sort.Slice(v.ID, func(i, j int) bool { // Сортировка слайса с невалидными операциями
+			id1, ok1 := v.ID[i].(string)
+			id2, ok2 := v.ID[j].(string)
+			if !ok1 {
+				id1 = fmt.Sprintf("%f", v.ID[i].(float64))
+			}
+			if !ok2 {
+				id2 = fmt.Sprintf("%f", v.ID[j].(float64))
+			}
+			return id1 < id2
+		})
 	}
 
 	f2, _ := os.Create("out.json") // create file
@@ -223,3 +241,4 @@ func main() {
 	enc.SetIndent("", "\t")
 	_ = enc.Encode(nodeSlice)
 }
+
