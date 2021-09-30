@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -145,24 +146,37 @@ type OutNode struct {
 }
 
 var filePath string
+var data []byte
 
-// Получение пути и названия файла
+// Получение пути файла и чтение из него или чтение файла из stdin
 func init() {
+	s, ok := os.LookupEnv("FILE")
+	if ok {
+		filePath = s
+	}
+
 	var filePath2 = flag.String("file", "", "path to file")
 	flag.Parse()
 	if *filePath2 != "" {
 		filePath = *filePath2
-		return
 	}
 
-	s, ok := os.LookupEnv("FILE")
-	if ok {
-		filePath = s
-		return
+	if filePath != "" {
+		f, err := os.Open(filePath)
+		if err != nil {
+			panic(err)
+		}
+		data, _ = ioutil.ReadAll(f)
+		_ = f.Close()
+	} else {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			data = []byte(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println(err)
+		}
 	}
-
-	fmt.Println("Enter path to file:")
-	_, _ = fmt.Scan(&filePath)
 }
 
 func main() {
@@ -171,17 +185,11 @@ func main() {
 	// Словарь для хранения промежуточных результатов (для удобного поиска по полю Company)
 	nodeMap := map[string]OutNode{}
 
-	f, err := os.Open(filePath)
-	if err != nil {
-		panic(err)
-	}
-	data2, _ := ioutil.ReadAll(f)
-	err = json.Unmarshal(data2, &input)
+	err := json.Unmarshal(data, &input)
 	if err != nil {
 		fmt.Println("Произошла ошибка при Анмаршаллинге")
 		panic(err)
 	}
-	_ = f.Close()
 
 	// проход по считанным из файла данным
 	for _, val := range input {
