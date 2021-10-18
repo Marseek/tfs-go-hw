@@ -17,52 +17,49 @@ import (
 var tickers = []string{"AAPL", "SBER", "NVDA", "TSLA"}
 var logger = logrus.New()
 
-func formCandles1m(ctx context.Context, pr <-chan domain.Price, wg *sync.WaitGroup) <-chan domain.Candle {
-	candles := make(chan domain.Candle, 4)
+func formCandles1m(pr <-chan domain.Price, wg *sync.WaitGroup) <-chan domain.Candle {
+	candles := make(chan domain.Candle)
 	var candlessMap = make(map[string]domain.Candle)
 	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				logger.Info("Generating 1m candles after SIGINT...")
-				for _, out := range candlessMap {
-					candles <- out
+		defer func() {
+			logger.Info("Generating 1m candles after SIGINT...")
+			for _, out := range candlessMap {
+				candles <- out
+			}
+			close(candles)
+			wg.Done()
+		}()
+		for j := range pr {
+			t, _ := domain.PeriodTS(domain.CandlePeriod1m, j.TS)
+			if candlessMap[j.Ticker].TS == t {
+				outCandle := candlessMap[j.Ticker]
+				if outCandle.High < j.Value {
+					outCandle.High = j.Value
 				}
-				close(candles)
-				return
-			case j := <-pr:
-				t, _ := domain.PeriodTS(domain.CandlePeriod1m, j.TS)
-				if candlessMap[j.Ticker].TS == t {
-					outCandle := candlessMap[j.Ticker]
-					if outCandle.High < j.Value {
-						outCandle.High = j.Value
-					}
-					if outCandle.Low > j.Value {
-						outCandle.Low = j.Value
-					}
-					outCandle.Close = j.Value
-					candlessMap[j.Ticker] = outCandle
-				} else {
-					if _, ok := candlessMap[j.Ticker]; ok {
-						candles <- candlessMap[j.Ticker]
-					}
-					candlessMap[j.Ticker] = domain.Candle{Ticker: j.Ticker, Period: domain.CandlePeriod1m, Open: j.Value, High: j.Value, Low: j.Value, Close: j.Value, TS: t}
+				if outCandle.Low > j.Value {
+					outCandle.Low = j.Value
 				}
+				outCandle.Close = j.Value
+				candlessMap[j.Ticker] = outCandle
+			} else {
+				if _, ok := candlessMap[j.Ticker]; ok {
+					candles <- candlessMap[j.Ticker]
+				}
+				candlessMap[j.Ticker] = domain.Candle{Ticker: j.Ticker, Period: domain.CandlePeriod1m, Open: j.Value, High: j.Value, Low: j.Value, Close: j.Value, TS: t}
 			}
 		}
 	}()
 	return candles
 }
 
-func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
-	candles := make(chan domain.Candle, 4)
+func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup, outChannel chan domain.Candle) <-chan domain.Candle {
+	candles := make(chan domain.Candle)
 	go func() {
 		defer wg.Done()
 		var candlessMap = make(map[string]domain.Candle)
 
 		for j := range pr {
-			candles <- j
+			outChannel <- j
 			t, _ := domain.PeriodTS(domain.CandlePeriod2m, j.TS)
 			if candlessMap[j.Ticker].TS == t {
 				outCandle := candlessMap[j.Ticker]
@@ -90,14 +87,13 @@ func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Ca
 	return candles
 }
 
-func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
-	candles := make(chan domain.Candle, 4)
+func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup, outChannel chan domain.Candle) {
 	go func() {
 		defer wg.Done()
 		var candlessMap = make(map[string]domain.Candle)
 		for j := range pr {
-			candles <- j
-			if j.Period == domain.CandlePeriod1m {
+			outChannel <- j
+			if j.Period == domain.CandlePeriod2m {
 				t, _ := domain.PeriodTS(domain.CandlePeriod10m, j.TS)
 				if candlessMap[j.Ticker].TS == t {
 					outCandle := candlessMap[j.Ticker]
@@ -111,7 +107,7 @@ func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.C
 					candlessMap[j.Ticker] = outCandle
 				} else {
 					if _, ok := candlessMap[j.Ticker]; ok {
-						candles <- candlessMap[j.Ticker]
+						outChannel <- candlessMap[j.Ticker]
 					}
 					candlessMap[j.Ticker] = domain.Candle{Ticker: j.Ticker, Period: domain.CandlePeriod10m, Open: j.Open, High: j.High, Low: j.Low, Close: j.Close, TS: t}
 				}
@@ -119,11 +115,10 @@ func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.C
 		}
 		logger.Info("Generating 10m candles after SIGINT...")
 		for _, out := range candlessMap {
-			candles <- out
+			outChannel <- out
 		}
-		close(candles)
+		close(outChannel)
 	}()
-	return candles
 }
 func writeToFile(j domain.Candle, file, file2, file3 *os.File) {
 	switch j.Period {
@@ -164,14 +159,15 @@ func main() {
 	})
 	logger.Info("start prices generator...")
 	prices := pg.Prices(ctx)
+	outChannel := make(chan domain.Candle)
 
 	wg.Add(4)
 	logger.Info("start candles generator...")
-	candles := formCandles1m(ctx, prices, &wg)
-	candles2 := formCandles2m(candles, &wg)
-	candles10 := formCandles10m(candles2, &wg)
+	candles := formCandles1m(prices, &wg)
+	candles2 := formCandles2m(candles, &wg, outChannel)
+	formCandles10m(candles2, &wg, outChannel)
 	logger.Info("starting output to file...")
-	makeOut(candles10, &wg)
+	makeOut(outChannel, &wg)
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
