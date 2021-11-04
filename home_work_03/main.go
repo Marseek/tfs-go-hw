@@ -52,14 +52,12 @@ func formCandles1m(pr <-chan domain.Price, wg *sync.WaitGroup) <-chan domain.Can
 	return candles
 }
 
-func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup, outChannel chan domain.Candle) <-chan domain.Candle {
+func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
 	candles := make(chan domain.Candle)
 	go func() {
 		defer wg.Done()
 		var candlessMap = make(map[string]domain.Candle)
-
 		for j := range pr {
-			outChannel <- j
 			t, _ := domain.PeriodTS(domain.CandlePeriod2m, j.TS)
 			if candlessMap[j.Ticker].TS == t {
 				outCandle := candlessMap[j.Ticker]
@@ -87,67 +85,98 @@ func formCandles2m(pr <-chan domain.Candle, wg *sync.WaitGroup, outChannel chan 
 	return candles
 }
 
-func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup, outChannel chan domain.Candle) {
+func formCandles10m(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
+	candles := make(chan domain.Candle)
 	go func() {
 		defer wg.Done()
 		var candlessMap = make(map[string]domain.Candle)
 		for j := range pr {
-			outChannel <- j
-			if j.Period == domain.CandlePeriod2m {
-				t, _ := domain.PeriodTS(domain.CandlePeriod10m, j.TS)
-				if candlessMap[j.Ticker].TS == t {
-					outCandle := candlessMap[j.Ticker]
-					if outCandle.High < j.High {
-						outCandle.High = j.High
-					}
-					if outCandle.Low > j.Low {
-						outCandle.Low = j.Low
-					}
-					outCandle.Close = j.Close
-					candlessMap[j.Ticker] = outCandle
-				} else {
-					if _, ok := candlessMap[j.Ticker]; ok {
-						outChannel <- candlessMap[j.Ticker]
-					}
-					candlessMap[j.Ticker] = domain.Candle{Ticker: j.Ticker, Period: domain.CandlePeriod10m, Open: j.Open, High: j.High, Low: j.Low, Close: j.Close, TS: t}
+			t, _ := domain.PeriodTS(domain.CandlePeriod10m, j.TS)
+			if candlessMap[j.Ticker].TS == t {
+				outCandle := candlessMap[j.Ticker]
+				if outCandle.High < j.High {
+					outCandle.High = j.High
 				}
+				if outCandle.Low > j.Low {
+					outCandle.Low = j.Low
+				}
+				outCandle.Close = j.Close
+				candlessMap[j.Ticker] = outCandle
+			} else {
+				if _, ok := candlessMap[j.Ticker]; ok {
+					candles <- candlessMap[j.Ticker]
+				}
+				candlessMap[j.Ticker] = domain.Candle{Ticker: j.Ticker, Period: domain.CandlePeriod10m, Open: j.Open, High: j.High, Low: j.Low, Close: j.Close, TS: t}
 			}
 		}
 		logger.Info("Generating 10m candles after SIGINT...")
 		for _, out := range candlessMap {
-			outChannel <- out
+			candles <- out
 		}
-		close(outChannel)
+		close(candles)
 	}()
+	return candles
 }
-func writeToFile(j domain.Candle, file, file2, file3 *os.File) {
-	switch j.Period {
-	case domain.CandlePeriod1m:
-		fmt.Fprintf(file, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
-	case domain.CandlePeriod2m:
-		fmt.Fprintf(file2, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
-	case domain.CandlePeriod10m:
-		fmt.Fprintf(file3, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
-	}
-}
-func makeOut(pr <-chan domain.Candle, wg *sync.WaitGroup) {
+
+func makeOut1(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
+	candles := make(chan domain.Candle)
 	go func() {
-		defer wg.Done()
 		file, err := os.OpenFile("candles_1m.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
-		file2, err2 := os.OpenFile("candles_2m.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
-		file3, err3 := os.OpenFile("candles_10m.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
-		if err != nil || err2 != nil || err3 != nil {
+		defer func() {
+			logger.Info("Closing channel, which saves 1m candles after SIGINT...")
+			wg.Done()
+			close(candles)
+			file.Close()
+		}()
+		if err != nil {
 			panic(err)
 		}
-		defer file.Close()
-		defer file2.Close()
-		defer file3.Close()
-
 		for j := range pr {
-			writeToFile(j, file, file2, file3)
+			fmt.Fprintf(file, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
+			candles <- j
+		}
+	}()
+	return candles
+}
+
+func makeOut2(pr <-chan domain.Candle, wg *sync.WaitGroup) <-chan domain.Candle {
+	candles := make(chan domain.Candle)
+	go func() {
+		file, err := os.OpenFile("candles_2m.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+		defer func() {
+			logger.Info("Closing channel, which saves 2m candles after SIGINT...")
+			wg.Done()
+			close(candles)
+			file.Close()
+		}()
+		if err != nil {
+			panic(err)
+		}
+		for j := range pr {
+			fmt.Fprintf(file, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
+			candles <- j
+		}
+	}()
+	return candles
+}
+
+func makeOut10(pr <-chan domain.Candle, wg *sync.WaitGroup) {
+	go func() {
+		file, err := os.OpenFile("candles_10m.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+		defer func() {
+			logger.Info("Closing channel, which saves 10m candles after SIGINT...")
+			wg.Done()
+			file.Close()
+		}()
+		if err != nil {
+			panic(err)
+		}
+		for j := range pr {
+			fmt.Fprintf(file, "%s,%v,%.6f,%.6f,%.6f,%.6f\n", j.Ticker, j.TS.Format(time.RFC3339), j.Open, j.High, j.Low, j.Close)
 		}
 	}()
 }
+
 func main() {
 	wg := sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -159,15 +188,16 @@ func main() {
 	})
 	logger.Info("start prices generator...")
 	prices := pg.Prices(ctx)
-	outChannel := make(chan domain.Candle)
 
-	wg.Add(4)
+	wg.Add(6)
 	logger.Info("start candles generator...")
 	candles := formCandles1m(prices, &wg)
-	candles2 := formCandles2m(candles, &wg, outChannel)
-	formCandles10m(candles2, &wg, outChannel)
+	candles1 := makeOut1(candles, &wg)
+	candles2out := formCandles2m(candles1, &wg)
+	candles2 := makeOut2(candles2out, &wg)
+	candles10 := formCandles10m(candles2, &wg)
+	makeOut10(candles10, &wg)
 	logger.Info("starting output to file...")
-	makeOut(outChannel, &wg)
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
