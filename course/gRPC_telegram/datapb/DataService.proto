@@ -1,0 +1,15 @@
+syntax = "proto3";
+package telegram;
+option go_package = "gRPC_telegram/datapb";
+
+message Response {
+  double resp = 1;
+}
+
+message Request {
+  string req = 1;
+}
+
+service MessageService {
+  rpc SendMessage(Request) returns(Response) {};
+}
