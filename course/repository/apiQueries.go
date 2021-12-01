@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 )
 
 func GenerateAuthent(postData, endpoint, apiSecret string) string {
@@ -28,7 +27,7 @@ func GenerateAuthent(postData, endpoint, apiSecret string) string {
 	return res
 }
 
-func (r *repo) SendOrder(symbol, side string, size int) (domain.APIResp, error) {
+func (r *Repo) SendOrder(symbol, side string, size int, addr string) (domain.APIResp, error) {
 	v := url.Values{}
 	v.Add("orderType", "mkt")
 	v.Add("symbol", symbol)
@@ -36,20 +35,16 @@ func (r *repo) SendOrder(symbol, side string, size int) (domain.APIResp, error) 
 	v.Add("size", strconv.Itoa(size))
 	queryString := v.Encode()
 
-	req, err := http.NewRequest(http.MethodPost, "http://demo-futures.kraken.com/derivatives/api/v3/sendorder"+"?"+queryString, nil)
+	req, err := http.NewRequest(http.MethodPost, addr+"?"+queryString, nil)
 	if err != nil {
 		return domain.APIResp{}, err
 	}
 
-	req.Header.Add("APIKey", "r7Fw1MM/nMIKLO+GKk47eTs1HoGWnEEs94VpIfPqgAZ5t75a/yrdPm7u")
-	authent := GenerateAuthent(queryString, "/api/v3/sendorder", "XiFDWJwfH70H65EBSlzq5N5HmhWA/Ce1ZR8HU/kSotdN2qSMCAj7aVXwf1sQpVBcc3YDllecDVNSrt/na9ARjupB")
+	req.Header.Add("APIKey", r.secrets["public"])
+	authent := GenerateAuthent(queryString, "/api/v3/sendorder", r.secrets["privat"])
 	req.Header.Add("Authent", authent)
 
-	c := http.Client{
-		Timeout: time.Second * 5,
-	}
-
-	resp, err := c.Do(req)
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return domain.APIResp{}, err
 	}
@@ -58,6 +53,7 @@ func (r *repo) SendOrder(symbol, side string, size int) (domain.APIResp, error) 
 	if err != nil {
 		return domain.APIResp{}, err
 	}
+	resp.Body.Close()
 
 	var respStruct domain.APIResp
 	err = json.Unmarshal(b, &respStruct)

@@ -40,6 +40,7 @@ func main() {
 		logger.Fatal(http.ListenAndServe(":5000", r))
 	}()
 
+	// Gracefull shutdown
 	sigquit := make(chan os.Signal, 1)
 	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 	signal.Notify(sigquit, syscall.SIGINT, syscall.SIGTERM)

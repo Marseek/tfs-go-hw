@@ -4,9 +4,9 @@ postgres:
     POSTGRES_USER: jlexie
     POSTGRES_PASSWORD: passwd
     POSTGRES_DB: fintech
-    PGDATA: /data/postgres
+#    PGDATA: /data/postgres
   volumes:
     - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    - ./postgres:/data/postgres
+#    - ./postgres:/data/postgres
   ports:
     - "5442:5432"

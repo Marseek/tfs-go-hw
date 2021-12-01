@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,8 +13,6 @@ import (
 const (
 	signedString = "lksjdkfjois9845784hug"
 )
-
-type myStr string
 
 type Usr struct {
 	Login  string `json:"login"`
@@ -38,21 +35,30 @@ func (p *SetParams) Login(w http.ResponseWriter, r *http.Request) {
 	var u Usr
 	err = json.Unmarshal(d, &u)
 	if err != nil || u.Login == "" || u.Passwd == "" {
-		_, _ = w.Write([]byte("Can't unmarshall data or empty username or password"))
 		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, "Can't unmarshall data or empty username or password")
 		return
 	}
 
-	usersMap := p.Service.GetUsersMap()
+	usersMap := p.Service.GetUsersMap("users.json")
 	if usersMap[u.Login] != u.Passwd {
-		_, _ = w.Write([]byte("Incorrect username or password"))
+		_, _ = io.WriteString(w, "Incorrect username or password")
 		return
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &TokenClaims{jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour * 1024).Unix(), IssuedAt: time.Now().Unix()}, u.Login})
+	token := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		&TokenClaims{
+			jwt.StandardClaims{
+				ExpiresAt: time.Now().Add(time.Hour * 1024).Unix(),
+				IssuedAt:  time.Now().Unix(),
+			},
+			u.Login,
+		},
+	)
 	tokenString, _ := token.SignedString([]byte(signedString))
 	w.Header().Add("token", tokenString)
-	_, _ = w.Write([]byte("Token generated\n"))
+	_, _ = io.WriteString(w, "Token generated\n")
 }
 
 func (p *SetParams) Auth(handler http.Handler) http.Handler {
@@ -75,7 +81,7 @@ func (p *SetParams) Auth(handler http.Handler) http.Handler {
 		tokenPart := splitted[1]
 		tk := &TokenClaims{}
 
-		_, err := jwt.ParseWithClaims(tokenPart, tk, func(token *jwt.Token) (interface{}, error) {
+		_, err := jwt.ParseWithClaims(tokenPart, tk, func(*jwt.Token) (interface{}, error) {
 			return []byte(signedString), nil
 		})
 		if err != nil { // Неправильный или несуществующий токен
@@ -84,8 +90,7 @@ func (p *SetParams) Auth(handler http.Handler) http.Handler {
 			return
 		}
 
-		idCtx := context.WithValue(r.Context(), myStr("ID"), myStr(tk.Login))
-		handler.ServeHTTP(w, r.WithContext(idCtx))
+		handler.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)

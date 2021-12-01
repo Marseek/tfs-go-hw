@@ -9,10 +9,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (r *repo) EstablishWsConnection(tick string) (*websocket.Conn, error) {
-	c, _, err := websocket.DefaultDialer.Dial("wss://demo-futures.kraken.com/ws/v1", nil)
+func (r *Repo) EstablishWsConnection(addr string, tick string) (*websocket.Conn, error) {
+	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
 	for err != nil { // redialling. Это когда сразу не получается подключиться.
-		c, _, err = websocket.DefaultDialer.Dial("wss://demo-futures.kraken.com/ws/v1", nil)
+		time.Sleep(time.Second)
+		c, _, err = websocket.DefaultDialer.Dial(addr, nil)
 	}
 
 	wsRequest, err := json.Marshal(domain.SubscribeWS{Event: "subscribe", Feed: "ticker_lite", Prod: []string{tick}})
@@ -23,17 +24,13 @@ func (r *repo) EstablishWsConnection(tick string) (*websocket.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < 2; i++ { // вычитывает ненужные сообщения из ВебСокета
-		_, _, _ = c.ReadMessage()
-	}
 	return c, nil
 }
 
-func (r *repo) SetWSConnection(tick string) (chan domain.WsResponse, func(), error) {
+func (r *Repo) SetWSConnection(addr string, tick string) (chan domain.WsResponse, func(), error) {
 	ch := make(chan domain.WsResponse)
-	var resp domain.WsResponse
 
-	c, err := r.EstablishWsConnection(tick)
+	c, err := r.EstablishWsConnection(addr, tick)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -41,15 +38,21 @@ func (r *repo) SetWSConnection(tick string) (chan domain.WsResponse, func(), err
 	cancel := make(chan struct{})
 	go func() {
 		for {
+			var resp domain.WsResponse
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				c, _ = r.EstablishWsConnection(tick)
 				r.logger.Debugln("WS connection failed. Establishing new connection")
+				c, _ = r.EstablishWsConnection(addr, tick)
 				continue
 			}
 			err = json.Unmarshal(message, &resp)
 			if err != nil {
 				log.Println(err)
+				r.logger.Debugln("Unmarshall error: ", err)
+				continue
+			}
+			if resp.ProductID == "" { // Игнорируем всякие странные сообщения
+				continue
 			}
 			ch <- resp
 			select {
@@ -62,6 +65,7 @@ func (r *repo) SetWSConnection(tick string) (chan domain.WsResponse, func(), err
 		}
 	}()
 	return ch, func() {
+		<-ch // нужно вычитать одно сообщение из канала, чтобы запись в него не блокировалась на 57 строчке
 		cancel <- struct{}{}
 	}, nil
 }

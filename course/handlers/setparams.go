@@ -17,7 +17,7 @@ type RobotService interface {
 	SetParamsWithoutStart(size int, profit float32, ticker, side string)
 	GetParams() domain.Options
 	SetStart(start int)
-	GetUsersMap() map[string]string
+	GetUsersMap(string) map[string]string
 }
 
 type SetParams struct {
@@ -39,7 +39,7 @@ func (p *SetParams) Routes() chi.Router {
 	root.HandleFunc("/login", p.Login)
 
 	r := chi.NewRouter()
-	r.Use(p.Auth)
+	// r.Use(p.Auth)
 	r.Post("/", p.SetAndStart)
 	r.Post("/set", p.SetParam)
 	r.Post("/start", p.Start)
@@ -55,18 +55,18 @@ func (p *SetParams) Start(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.logger.WithError(err).Error("Error, while setting parm's")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Bad params: " + err.Error()))
+		_, _ = io.WriteString(w, "Bad params: "+err.Error())
 		return
 	}
 	p.Service.SetStart(1)
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write([]byte("The signal to start had been sent\n"))
+	_, _ = io.WriteString(w, "The signal to start had been sent\n")
 }
 
 func (p *SetParams) Stop(w http.ResponseWriter, r *http.Request) {
 	p.Service.SetStart(0)
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write([]byte("The signal to stop had been sent\n"))
+	_, _ = io.WriteString(w, "The signal to stop had been sent\n")
 }
 
 func (p *SetParams) SetAndStart(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (p *SetParams) SetAndStart(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.logger.Println("Unmarshall error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Json unmarshall error"))
+		_, _ = io.WriteString(w, "Json unmarshall error")
 		return
 	}
 
@@ -90,10 +90,10 @@ func (p *SetParams) SetAndStart(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.logger.WithError(err).Error("Error, while setting parms")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Bad params: " + err.Error()))
+		_, _ = io.WriteString(w, "Bad params: "+err.Error())
 		return
 	}
-	_, _ = w.Write([]byte("Parameters had been set\n"))
+	_, _ = io.WriteString(w, "Parameters had been set\n")
 	p.Service.SetParams(options.Start, options.Size, options.Profit, options.Ticker, options.Side)
 }
 
@@ -110,17 +110,17 @@ func (p *SetParams) SetParam(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.logger.Println("Unmarshall error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Json unmarshall error\n"))
+		_, _ = io.WriteString(w, "Json unmarshall error\n")
 		return
 	}
 	err = checkInput(options)
 	if err != nil {
 		p.logger.WithError(err).Error("Error, while setting parm's")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Bad params: " + err.Error()))
+		_, _ = io.WriteString(w, "Bad params: "+err.Error())
 		return
 	}
-	_, _ = w.Write([]byte("Parameters had been set\n"))
+	_, _ = io.WriteString(w, "Parameters had been set\n")
 	p.Service.SetParamsWithoutStart(options.Size, options.Profit, options.Ticker, options.Side)
 }
 
@@ -129,9 +129,6 @@ func (p *SetParams) Getparams() domain.Options {
 }
 
 func checkInput(opt domain.Options) error {
-	if opt.Side != "buy" && opt.Side != "sell" {
-		return errors.New(`'side' option must be 'buy' or 'sell'`)
-	}
 	if opt.Size < 1 {
 		return errors.New(`'size' option must be more than 0`)
 	}

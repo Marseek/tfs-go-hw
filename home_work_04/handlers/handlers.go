@@ -13,8 +13,6 @@ import (
 
 	"github.com/Marseek/tfs-go-hw/home_work_04/domain"
 	"github.com/Marseek/tfs-go-hw/home_work_04/repository"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/go-chi/chi/v5"
 )
 
 type Chat struct {
