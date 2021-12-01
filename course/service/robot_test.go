@@ -2,14 +2,14 @@ package service
 
 import (
 	"context"
-	"course/domain"
-	mock_service "course/service/mocks"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
+	mock_service "github.com/Marseek/tfs-go-hw/course/service/mocks"
 	"github.com/golang/mock/gomock"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
-	"course/domain"
-	"course/pkg/telegrampb"
 	"flag"
 	"net/http"
 	"time"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
+	"github.com/Marseek/tfs-go-hw/course/pkg/telegrampb"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
 )

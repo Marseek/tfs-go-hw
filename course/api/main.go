@@ -2,15 +2,15 @@ package main
 
 import (
 	"context"
-	"course/handlers"
-	pkgpostgres "course/pkg/postgres"
-	"course/repository"
-	"course/service"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/Marseek/tfs-go-hw/course/handlers"
+	pkgpostgres "github.com/Marseek/tfs-go-hw/course/pkg/postgres"
+	"github.com/Marseek/tfs-go-hw/course/repository"
+	"github.com/Marseek/tfs-go-hw/course/service"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 )

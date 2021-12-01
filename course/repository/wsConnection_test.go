@@ -1,13 +1,13 @@
 package repository
 
 import (
-	"course/domain"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 )

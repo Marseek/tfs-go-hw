@@ -1,11 +1,11 @@
 package repository
 
 import (
-	"course/domain"
 	"encoding/json"
 	"log"
 	"time"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
 	"github.com/gorilla/websocket"
 )
 

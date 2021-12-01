@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
-	"course/domain"
-	pkgpostgres "course/pkg/postgres"
 	"testing"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
+	pkgpostgres "github.com/Marseek/tfs-go-hw/course/pkg/postgres"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

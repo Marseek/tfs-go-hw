@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"course/domain"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
 	"github.com/sirupsen/logrus"
 )
 

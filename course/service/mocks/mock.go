@@ -6,7 +6,7 @@ package mock_service
 
 import (
 	context "context"
-	domain "course/domain"
+	domain "github.com/Marseek/tfs-go-hw/course/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

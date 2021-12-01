@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"bytes"
-	"course/repository"
-	"course/service"
-	mock_service "course/service/mocks"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Marseek/tfs-go-hw/course/repository"
+	"github.com/Marseek/tfs-go-hw/course/service"
+	mock_service "github.com/Marseek/tfs-go-hw/course/service/mocks"
 	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
 	log "github.com/sirupsen/logrus"

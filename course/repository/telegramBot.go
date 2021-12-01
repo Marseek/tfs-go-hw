@@ -2,7 +2,8 @@ package repository
 
 import (
 	"context"
-	"course/pkg/telegrampb"
+
+	"github.com/Marseek/tfs-go-hw/course/pkg/telegrampb"
 )
 
 func (r *Repo) WriteToTelegramBot(text string) {

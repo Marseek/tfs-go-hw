@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"course/domain"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sirupsen/logrus"
@@ -129,6 +129,9 @@ func (p *SetParams) Getparams() domain.Options {
 }
 
 func checkInput(opt domain.Options) error {
+	if opt.Side != "buy" && opt.Side != "sell" && opt.Side != "" {
+		return errors.New(`'side' option must be 'buy' or 'sell'`)
+	}
 	if opt.Size < 1 {
 		return errors.New(`'size' option must be more than 0`)
 	}

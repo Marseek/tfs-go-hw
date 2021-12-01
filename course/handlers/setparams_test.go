@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"bytes"
-	"course/domain"
-	"course/repository"
-	"course/service"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Marseek/tfs-go-hw/course/domain"
+	"github.com/Marseek/tfs-go-hw/course/repository"
+	"github.com/Marseek/tfs-go-hw/course/service"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

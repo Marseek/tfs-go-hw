@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"course/domain"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -11,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/Marseek/tfs-go-hw/course/domain"
 )
 
 func GenerateAuthent(postData, endpoint, apiSecret string) string {
